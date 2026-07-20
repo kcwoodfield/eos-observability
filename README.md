@@ -5,6 +5,10 @@ engineering work across Claude Code and pi.dev.
 
 ![EOS-Observability dashboard](docs/images/dashboard.png)
 
+## Architecture
+
+![EOS-Observability architecture — Claude Code and pi.dev harnesses streaming events through Python hooks / a TS extension into a Bun server backed by SQLite, pushed to a live dashboard over WebSocket](docs/eos-observability.svg)
+
 ## What this does
 
 Watches AI coding agents work in real time — every tool call, prompt, and
@@ -20,10 +24,6 @@ actually stands. This gives that view, and it's built to track *any* CLI
 harness through one normalized event model, not just one vendor's.
 
 ## How
-
-```
-Harness (Claude Code / pi.dev) → adapter → Bun server → SQLite → WebSocket → React client
-```
 
 - **`apps/server`** — Bun + `bun:sqlite`, filtered/paginated queries, live WebSocket broadcast
 - **`apps/client`** — Vite + React + shadcn/ui dashboard
