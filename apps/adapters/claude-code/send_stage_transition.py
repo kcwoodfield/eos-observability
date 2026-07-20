@@ -6,17 +6,17 @@
 """
 EOS-Observability — explicit lifecycle stage-transition sender.
 
-This is PRD.md §3 mechanism B: a deliberate, explicit event marking that a
-ticket has entered a new eos/ lifecycle stage, carrying the resolution packet
-({Application, Ticket ID, Repository, Project-Memory Path} per
+A deliberate, explicit event marking that a ticket has entered a new eos/
+lifecycle stage, carrying the resolution packet ({Application, Ticket ID,
+Repository, Project-Memory Path} per
 eos/standards/Application Mapping Standard.md). It is not a Claude Code hook —
 it's meant to be invoked directly (e.g. by the Engineering Lead role, via the
 Bash tool) at each stage boundary in eos/lifecycle/engineering-lifecycle.md.
 
 This script does not infer or validate the stage/role against eos/ — it sends
-exactly what it's told. Mapping raw tool activity to a stage is an unresolved
-design question (PRD.md §10); this script only covers the "an explicit
-transition was announced" half of that problem.
+exactly what it's told. Mapping raw tool activity to a stage automatically is
+a separate, unresolved problem; this script only covers the "an explicit
+transition was announced" half of it.
 """
 
 import json

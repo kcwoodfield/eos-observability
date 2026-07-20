@@ -1,9 +1,9 @@
-// Normalized event model — see eos-observability/PRD.md §4 and §5.0.
+// Normalized event model — the harness-agnostic envelope every adapter sends.
 //
 // Design rule: harness-native fields (`event_type`, `payload`) are preserved
 // verbatim, never lossy-translated. The `lifecycle` overlay is additive and,
 // for now, stored exactly as received — no server-side stage inference or
-// cross-event inheritance (see PRD §4 design-risk note and §10 open items).
+// cross-event inheritance yet.
 
 export type Harness = 'claude-code' | 'pi';
 
@@ -29,6 +29,13 @@ export type QualityGate =
   | 'review'
   | 'testing'
   | 'knowledge_preservation';
+
+export interface TokenUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_tokens: number;
+  cache_read_tokens: number;
+}
 
 export interface ResolutionPacket {
   application: string;
@@ -57,6 +64,11 @@ export interface NewObservabilityEvent {
   chat?: any[];
   summary?: string;
   model_name?: string;
+  // Cumulative usage for the session as of this event (not a per-event
+  // delta) — a client only needs the latest event per session to know the
+  // session's current total. Populated by adapters that can read it from
+  // the harness's own transcript; not every harness/event will have it.
+  token_usage?: TokenUsage;
 }
 
 export interface ObservabilityEvent extends NewObservabilityEvent {

@@ -12,9 +12,9 @@ function matchesFilters(event: ObservabilityEvent, filters: EventQuery): boolean
 }
 
 // Combines a server-filtered REST query (GET /events) for the initial/backfill
-// page with the live WebSocket stream for real-time updates — see PRD.md §7,
-// which calls out server-side filtering as the fix for the reference app's
-// client-buffer-only filtering.
+// page with the live WebSocket stream for real-time updates — server-side
+// filtering instead of the client-buffer-only filtering approach this
+// replaces.
 export function useObservabilityEvents(filters: EventQuery) {
   const [historyEvents, setHistoryEvents] = useState<ObservabilityEvent[]>([])
   const [loading, setLoading] = useState(false)

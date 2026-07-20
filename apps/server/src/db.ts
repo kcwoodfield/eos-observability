@@ -9,7 +9,7 @@ import type {
 
 // Repository interface: all persistence access goes through this, not raw
 // db.prepare() calls scattered through route handlers. This is what makes a
-// future runtime/storage swap a contained change (see PRD.md §7).
+// future runtime/storage swap a contained change.
 export interface EventRepository {
   insert(event: NewObservabilityEvent): ObservabilityEvent;
   list(query: EventQuery): EventPage;
@@ -29,6 +29,7 @@ function rowToEvent(row: any): ObservabilityEvent {
     chat: row.chat ? JSON.parse(row.chat) : undefined,
     summary: row.summary || undefined,
     model_name: row.model_name || undefined,
+    token_usage: row.token_usage ? JSON.parse(row.token_usage) : undefined,
   };
 }
 
@@ -59,6 +60,11 @@ export class SqliteEventRepository implements EventRepository {
       )
     `);
 
+    const columns = this.db.prepare('PRAGMA table_info(events)').all() as { name: string }[];
+    if (!columns.some((c) => c.name === 'token_usage')) {
+      this.db.exec('ALTER TABLE events ADD COLUMN token_usage TEXT');
+    }
+
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_events_harness ON events(harness)');
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_events_source_app ON events(source_app)');
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_events_session_id ON events(session_id)');
@@ -70,8 +76,8 @@ export class SqliteEventRepository implements EventRepository {
     const timestamp = event.timestamp ?? Date.now();
 
     const stmt = this.db.prepare(`
-      INSERT INTO events (harness, source_app, session_id, event_type, payload, lifecycle, chat, summary, model_name, timestamp)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO events (harness, source_app, session_id, event_type, payload, lifecycle, chat, summary, model_name, token_usage, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -84,6 +90,7 @@ export class SqliteEventRepository implements EventRepository {
       event.chat ? JSON.stringify(event.chat) : null,
       event.summary ?? null,
       event.model_name ?? null,
+      event.token_usage ? JSON.stringify(event.token_usage) : null,
       timestamp
     );
 

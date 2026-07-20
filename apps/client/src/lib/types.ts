@@ -1,4 +1,4 @@
-// Mirrors apps/server/src/types.ts — see PRD.md §4.
+// Mirrors apps/server/src/types.ts.
 
 export type Harness = 'claude-code' | 'pi'
 
@@ -7,6 +7,13 @@ export interface ResolutionPacket {
   ticket_id: string
   repository: string
   project_memory_path: string
+}
+
+export interface TokenUsage {
+  input_tokens: number
+  output_tokens: number
+  cache_creation_tokens: number
+  cache_read_tokens: number
 }
 
 export interface LifecycleOverlay {
@@ -29,6 +36,7 @@ export interface ObservabilityEvent {
   chat?: unknown[]
   summary?: string
   model_name?: string
+  token_usage?: TokenUsage
 }
 
 export interface FilterOptions {

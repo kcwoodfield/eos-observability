@@ -7,12 +7,12 @@
 EOS-Observability — Claude Code adapter.
 
 Reads a Claude Code hook payload from stdin, wraps it in the normalized
-ObservabilityEvent envelope (see eos-observability/apps/server/src/types.ts
-and PRD.md §4/§5.1), and POSTs it to the EOS-Observability server.
+ObservabilityEvent envelope (see apps/server/src/types.ts), and POSTs it to
+the EOS-Observability server.
 
-Per the adapter contract (PRD.md §5.0): harness-native fields (`event_type`,
-`payload`) are preserved verbatim. This script does no stage/role inference —
-that's a separate, explicit step (see send_stage_transition.py).
+Harness-native fields (`event_type`, `payload`) are preserved verbatim. This
+script does no stage/role inference — that's a separate, explicit step (see
+send_stage_transition.py).
 """
 
 import json
@@ -22,6 +22,7 @@ import urllib.request
 import urllib.error
 from datetime import datetime
 from utils.model_extractor import get_model_from_transcript
+from utils.token_usage import get_token_usage_from_transcript
 
 
 def send_event(event_data: dict, server_url: str) -> bool:
@@ -67,6 +68,10 @@ def main():
     model_name = get_model_from_transcript(transcript_path)
     if model_name:
         event_data['model_name'] = model_name
+
+    token_usage = get_token_usage_from_transcript(transcript_path)
+    if token_usage:
+        event_data['token_usage'] = token_usage
 
     if args.add_chat and transcript_path:
         chat_data = []

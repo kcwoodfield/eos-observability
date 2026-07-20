@@ -28,6 +28,12 @@ function pct(ts: number, domainStart: number, domainEnd: number): number {
   return Math.min(100, Math.max(0, ((ts - domainStart) / (domainEnd - domainStart)) * 100))
 }
 
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}m`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+  return String(n)
+}
+
 interface EventMarker {
   events: { id: number; timestamp: number; event_type: string }[]
   leftPct: number
@@ -117,7 +123,10 @@ export function ActivityTimeline({ events }: { events: ObservabilityEvent[] }) {
 
               return (
                 <div key={session.session_id} className="flex items-center gap-3">
-                  <div className="flex w-44 shrink-0 items-center gap-1.5 overflow-hidden">
+                  <div
+                    tabIndex={session.tokenUsage ? 0 : undefined}
+                    className={`group/session relative flex w-44 shrink-0 items-center gap-1.5 overflow-hidden ${session.tokenUsage ? 'cursor-help' : ''}`}
+                  >
                     <span
                       className="size-1.5 shrink-0 rounded-full"
                       style={{ backgroundColor: color }}
@@ -126,6 +135,26 @@ export function ActivityTimeline({ events }: { events: ObservabilityEvent[] }) {
                     <span className="shrink-0 truncate font-mono text-[10px] text-muted-foreground">
                       {session.session_id.slice(0, 6)}
                     </span>
+
+                    {session.tokenUsage && (
+                      <div className="pointer-events-none absolute top-full left-0 z-10 mt-1.5 hidden w-max rounded-md border border-border bg-popover px-2 py-1.5 text-xs whitespace-nowrap text-popover-foreground shadow-md group-hover/session:block group-focus-within/session:block">
+                        <div className="font-medium tabular-nums">
+                          {formatTokens(
+                            session.tokenUsage.input_tokens +
+                              session.tokenUsage.output_tokens +
+                              session.tokenUsage.cache_creation_tokens +
+                              session.tokenUsage.cache_read_tokens
+                          )}{' '}
+                          tokens {session.status === 'running' ? 'used so far' : 'used'}
+                        </div>
+                        <div className="text-muted-foreground tabular-nums">
+                          {formatTokens(session.tokenUsage.input_tokens)} in ·{' '}
+                          {formatTokens(session.tokenUsage.output_tokens)} out
+                          {session.tokenUsage.cache_read_tokens > 0 &&
+                            ` · ${formatTokens(session.tokenUsage.cache_read_tokens)} cached`}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="relative h-5 min-w-0 flex-1">
