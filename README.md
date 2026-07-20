@@ -6,6 +6,8 @@ resolution packet — rather than as a generic tool-call logger. Tracks
 multiple CLI coding harnesses (Claude Code, pi.dev) through one normalized
 event model.
 
+![EOS-Observability dashboard](docs/images/dashboard.png)
+
 ## Architecture
 
 ```
