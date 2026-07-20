@@ -3,6 +3,10 @@ dist/
 build/
 *.log
 
+# Python
+__pycache__/
+*.pyc
+
 # Bun
 bun.lock.bak
 

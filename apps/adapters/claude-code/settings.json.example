@@ -1,0 +1,70 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          { "type": "command", "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/pre_tool_use.py" },
+          { "type": "command", "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app YOUR_ROLE --event-type PreToolUse" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          { "type": "command", "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app YOUR_ROLE --event-type PostToolUse" }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          { "type": "command", "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app YOUR_ROLE --event-type Notification" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app YOUR_ROLE --event-type UserPromptSubmit" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app YOUR_ROLE --event-type Stop --add-chat" }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app YOUR_ROLE --event-type SubagentStop --add-chat" }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          { "type": "command", "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app YOUR_ROLE --event-type PreCompact" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app YOUR_ROLE --event-type SessionStart" }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          { "type": "command", "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/send_event.py --source-app YOUR_ROLE --event-type SessionEnd" }
+        ]
+      }
+    ]
+  }
+}
