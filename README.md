@@ -6,9 +6,6 @@ resolution packet — rather than as a generic tool-call logger. Tracks
 multiple CLI coding harnesses (Claude Code, pi.dev) through one normalized
 event model.
 
-See [`PRD.md`](PRD.md) for the full design (architecture, the harness adapter
-contract, the event→lifecycle mapping problem, and open questions).
-
 ## Architecture
 
 ```
@@ -89,10 +86,10 @@ transitions explicitly (`send_stage_transition.py`).
 
 ## How to: connect a pi.dev session
 
-**Status: adapter not yet built** — pi.dev's extension model is confirmed
-(see `PRD.md` §5.2: in-process TypeScript modules via `pi.on()`, not spawned
-scripts like Claude Code's), but the actual `apps/adapters/pi` extension is
-still on the to-do list. This is the intended setup once it lands:
+**Status: adapter not yet built** — pi.dev's extension model is confirmed:
+in-process TypeScript modules via `pi.on()`, not spawned scripts like Claude
+Code's — but the actual `apps/adapters/pi` extension is still on the to-do
+list. This is the intended setup once it lands:
 
 1. Copy (or `npm`/git-install) the extension into pi's project-local
    extension directory:
@@ -105,5 +102,3 @@ still on the to-do list. This is the intended setup once it lands:
 3. Start (or `/reload`) pi in that project. The extension's `pi.on(...)`
    handlers POST normalized events (`harness: "pi"`) to the same server and
    dashboard as Claude Code.
-
-Follow `PRD.md` §5.2 and §9 for progress on this piece.
