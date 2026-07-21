@@ -22,7 +22,10 @@ logic (blocking dangerous commands / `.env` access), not just logging.
 
 Requires [Astral uv](https://docs.astral.sh/uv/) (`uv run --script` executes these with no separate install step).
 
-1. Copy this directory's contents into your project's `.claude/hooks/`.
+1. Copy this directory's contents into `.claude/hooks/` in the project you want
+   to observe — a separate codebase from this repo (e.g. `~/code/your-project`,
+   not `~/code/eos-observability`). Once copied, these scripts are self-contained
+   and have no path dependency back on this repo.
 2. Copy `settings.json.example` into `.claude/settings.json`, replacing `YOUR_ROLE`
    with the identity of the role/agent running in that project — this is what lets
    the server resolve `role` from `source_app`.

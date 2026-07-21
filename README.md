@@ -49,9 +49,11 @@ cd apps/client && bun install && bun run dev
 
 ### 3. Connect an adapter
 
+The project you're watching — call it `your-project/` — is a **separate codebase from this one**, e.g. `/Users/you/code/your-project` while EOS-Observability lives at `/Users/you/code/eos-observability`. The adapter files get *copied into* `your-project/`, not run from here. Once copied, they're self-contained: no path back to this repo, no dependency on where it lives. The only thing connecting the two is a URL — the adapter POSTs to wherever the server (step 1) is listening, `localhost:4100` by default. If the server runs elsewhere (a different machine, a different port), pass `--server-url` on each hook command instead.
+
 Each adapter is **independent** — install only the one(s) matching the harness(es) you use. They all speak the same normalized event format to the server, so any combination works simultaneously.
 
-| Harness | Adapter path | Status |
+| Harness | Adapter source (in this repo) | Status |
 |---|---|---|
 | Claude Code | `apps/adapters/claude-code/` | ✅ Available |
 | GitHub Copilot CLI | `apps/adapters/copilot-cli/` | 🚧 Planned |
@@ -59,10 +61,11 @@ Each adapter is **independent** — install only the one(s) matching the harness
 
 **Claude Code (available now):**
 
-1. Copy `apps/adapters/claude-code/` into your project's `.claude/hooks/`
-2. Copy `settings.json.example` → `.claude/settings.json` and set `YOUR_ROLE`
-   to the agent identity (e.g. `"Engineering Lead"`)
-3. Start a Claude Code session — events stream to the dashboard in real time
+1. Copy this repo's `apps/adapters/claude-code/` into `your-project/.claude/hooks/`
+2. Copy `settings.json.example` → `your-project/.claude/settings.json` and set
+   `YOUR_ROLE` to the agent identity (e.g. `"Engineering Lead"`)
+3. Start a Claude Code session **in `your-project/`** — events stream to the
+   dashboard in real time
 
 Full setup: [`apps/adapters/claude-code/README.md`](apps/adapters/claude-code/README.md)
 
