@@ -56,7 +56,7 @@ transition to be valid.
 
 ## Human-in-the-loop (approval / escalation)
 
-For the eos/ Approval gate — or any point where the rule is "stop and
+For an EOS quality gate — or any point where the rule is "stop and
 escalate" — invoke `request_approval.py` directly. It blocks until someone
 responds from the dashboard's inbox (or the timeout elapses), then exits
 `0` (approved) or non-zero (denied/timed out) so the calling agent can act
@@ -66,10 +66,38 @@ on the result:
 uv run request_approval.py \
   --source-app "Engineering Lead" --session-id "$SESSION_ID" \
   --question "Ready to merge PR #42 into main — approve?" \
-  --ticket-id ABC-9561
+  --ticket-id ABC-9561 --gate approval
 ```
+
+**The human answers only to the Engineering Lead** — the server rejects
+`--source-app` values other than `"Engineering Lead"` (400). A specialist
+role (Research, Architecture, Implementation, Review, Testing, Knowledge
+Steward) reports its gate outcome to the Engineering Lead; the Engineering
+Lead is the one that checks in with the human, not the specialist directly.
+
+`--gate` marks which quality gate this confirms. It's required before
+`send_stage_transition.py` can mark that gate `gate_result=pass` — the
+server rejects a pass with no matching approved confirmation on record for
+that ticket + gate (see "Gated quality gates" below).
 
 Unlike the reference app's HITL (which had the *server* dial an outbound
 connection back to a port the agent opened), this script itself holds the
 open connection via long-polling — nothing needs to be reachable on the
 agent's side.
+
+## Gated quality gates ("the gated loop")
+
+Every quality gate — not just Approval — requires an approved HITL
+confirmation before `send_stage_transition.py` can report it as
+`gate_result: pass`. Self-reporting a pass with no confirmation on record
+gets rejected (400). The flow for a gated stage:
+
+1. Specialist role finishes its work; reports the outcome to the
+   Engineering Lead (out of band — a conversation turn, not an API call).
+2. Engineering Lead calls `request_approval.py --gate <gate>` and waits.
+3. Human approves (or denies) from the dashboard inbox.
+4. Only now can `send_stage_transition.py --gate <gate> --gate-result pass`
+   succeed for that ticket.
+
+`fail`/`pending` results need no confirmation — only an assertion of
+success does.

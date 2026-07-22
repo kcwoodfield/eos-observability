@@ -4,6 +4,11 @@ import type { EventQuery, NewObservabilityEvent } from './types';
 const PORT = Number(process.env.PORT ?? 4100);
 const DB_PATH = process.env.DB_PATH ?? 'events.db';
 
+// The sole orchestrator role per eos/roles/Engineering Lead.md — the only
+// role that talks to the human. Specialist roles report to it, not to the
+// human directly (see the assertion on POST /hitl below).
+const ORCHESTRATOR_ROLE = 'Engineering Lead';
+
 const repo = new SqliteEventRepository(DB_PATH);
 
 const wsClients = new Set<any>();
@@ -195,6 +200,20 @@ const server = Bun.serve({
           typeof body.question !== 'string'
         ) {
           return json({ error: 'Missing or invalid required fields' }, { status: 400 });
+        }
+
+        // Assertion: the human answers only to the Engineering Lead —
+        // specialist roles check in with the Engineering Lead (who reports
+        // the outcome to the human), not with the human directly. Mirrors
+        // the same server-enforced-not-self-reported approach as the gate
+        // assertion above.
+        if (body.source_app !== ORCHESTRATOR_ROLE) {
+          return json(
+            {
+              error: `Only "${ORCHESTRATOR_ROLE}" may open a HITL request — "${body.source_app}" should report its outcome to ${ORCHESTRATOR_ROLE}, who requests the human's confirmation.`,
+            },
+            { status: 400 }
+          );
         }
 
         const saved = repo.create({

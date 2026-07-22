@@ -97,16 +97,20 @@ function postStageTransition(
   }).catch((err) => console.error('demo: failed to send stage transition', err))
 }
 
-async function requestAndApproveGate(def: StageDef, sessionId: string) {
+// The human only answers to the Engineering Lead (server-enforced, see
+// index.ts's assertion on POST /hitl) — a specialist role reports its gate
+// outcome to the Engineering Lead, who is the one who checks in with the
+// human, not the specialist directly.
+async function requestAndApproveGate(def: StageDef) {
   try {
     const res = await fetch(`${SERVER_URL}/hitl`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         harness: 'claude-code',
-        source_app: def.sourceApp,
-        session_id: sessionId,
-        question: `${TICKET_ID}: confirm the ${def.gate} gate?`,
+        source_app: 'Engineering Lead',
+        session_id: sessionFor('eng-lead'),
+        question: `${TICKET_ID}: ${def.role} reports the ${def.gate} gate complete — confirm?`,
         ticket_id: TICKET_ID,
         gate: def.gate,
       }),
@@ -152,7 +156,7 @@ function buildActions(): StageAction[] {
     actions.push({
       t: confirmAt,
       kind: 'confirm',
-      run: () => requestAndApproveGate(def, sessionId),
+      run: () => requestAndApproveGate(def),
     })
     actions.push({ t: passAt, kind: 'pass', run: () => postStageTransition(def, sessionId, 'pass') })
 
