@@ -24,6 +24,9 @@ harness through one normalized event model, not just one vendor's.
 ## Quick Start
 
 > Get the server, dashboard, and at least one adapter running in under 5 minutes.
+>
+> **Just want to watch Claude Code work, step by step, no jargon?** →
+> [`docs/claude-code-quickstart.md`](docs/claude-code-quickstart.md)
 
 ### Prerequisites
 
@@ -180,3 +183,10 @@ Each file must have both `bash` and `powershell` script variants:
 - [ ] Does Copilot CLI's transcript JSONL match Claude Code's format closely enough
       to reuse `model_extractor.py` and `token_usage.py` unchanged?
 - [ ] Does `agentStop` include model info anywhere in the payload or transcript?
+
+---
+
+## License
+
+All rights reserved — see [`LICENSE`](LICENSE). Viewing is fine; reuse,
+modification, or redistribution requires the copyright holder's permission.
