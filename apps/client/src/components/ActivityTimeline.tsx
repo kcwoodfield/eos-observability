@@ -183,27 +183,27 @@ export function ActivityTimeline({ events }: { events: ObservabilityEvent[] }) {
                           className="group absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
                           style={{ left: `${cluster.leftPct}%` }}
                         >
-                          {/* 24px transparent hit area (dataviz skill: marks need a hit
+                          {/* 28px transparent hit area (dataviz skill: marks need a hit
                               target bigger than the visible pixels) around a smaller visible dot */}
                           <button
                             type="button"
                             tabIndex={0}
-                            className="flex size-6 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-ring"
+                            className="flex size-7 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-ring"
                           >
                             <span
-                              className="flex size-4 items-center justify-center rounded-full border border-background"
+                              className="flex size-5 items-center justify-center rounded-full border border-background"
                               style={{ backgroundColor: success ? 'var(--status-good)' : color }}
                             >
-                              <Icon className="size-2.5 text-white" strokeWidth={2.5} />
+                              <Icon className="size-3 text-white" strokeWidth={2.5} />
                             </span>
                             {cluster.events.length > 1 && (
-                              <span className="absolute -top-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-foreground px-0.5 text-[9px] font-semibold text-background tabular-nums">
+                              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground px-0.5 text-[9px] font-semibold text-background tabular-nums">
                                 {cluster.events.length}
                               </span>
                             )}
                           </button>
 
-                          <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 hidden -translate-x-1/2 rounded-md border border-border bg-popover px-2 py-1.5 text-xs whitespace-nowrap text-popover-foreground shadow-md group-hover:block group-focus-within:block">
+                          <div className="pointer-events-none absolute top-full left-1/2 z-10 mt-1.5 hidden -translate-x-1/2 rounded-md border border-border bg-popover px-2 py-1.5 text-xs whitespace-nowrap text-popover-foreground shadow-md group-hover:block group-focus-within:block">
                             {cluster.events.length === 1 ? (
                               <>
                                 <span className="font-medium tabular-nums">{formatClock(latest.timestamp)}</span>
