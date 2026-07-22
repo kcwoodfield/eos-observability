@@ -5,6 +5,11 @@ engineering work — across any CLI harness, unified into one live view.
 
 ![EOS-Observability dashboard](docs/images/dashboard.png)
 
+<figure>
+  <img src="docs/images/hitl-inbox.png" alt="EOS-Observability HITL inbox and Working Stage panel">
+  <figcaption>A pending Approval-gate request in the HITL inbox, with the Working Stage panel and per-ticket Agent Tree tracking the same ticket live.</figcaption>
+</figure>
+
 ## What this does
 
 Watches AI coding agents work in real time — every tool call, prompt, and
