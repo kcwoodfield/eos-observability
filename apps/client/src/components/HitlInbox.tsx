@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { formatSnakeLabel } from '@/lib/format'
+import { formatSnakeLabel, truncateText } from '@/lib/format'
 import { identityColorVar } from '@/lib/identityColor'
 import { respondToHitlRequest } from '@/lib/hitl'
 import type { HitlRequest } from '@/lib/types'
@@ -63,7 +63,9 @@ export function HitlInbox({ requests }: { requests: HitlRequest[] }) {
                     </Badge>
                   )}
                 </div>
-                <p className="truncate text-xs text-muted-foreground">{request.question}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {truncateText(request.question)}
+                </p>
               </div>
               <div className="flex shrink-0 gap-1.5">
                 <Button

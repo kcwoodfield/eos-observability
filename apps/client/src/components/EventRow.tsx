@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { getEventTypeIcon, isSuccessEvent } from '@/lib/eventTypeMeta'
-import { formatSnakeLabel, shortSessionId } from '@/lib/format'
+import { formatSnakeLabel, shortSessionId, truncateText } from '@/lib/format'
 import { identityColorVar } from '@/lib/identityColor'
 import type { ObservabilityEvent } from '@/lib/types'
 
@@ -73,7 +73,7 @@ export function EventRow({ event }: { event: ObservabilityEvent }) {
       )}
 
       <span className="min-w-0 flex-1 truncate text-muted-foreground">
-        {event.summary ?? JSON.stringify(event.payload)}
+        {truncateText(event.summary ?? JSON.stringify(event.payload))}
       </span>
 
       <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">

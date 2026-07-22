@@ -13,3 +13,12 @@ export function formatSnakeLabel(value: string): string {
 export function shortSessionId(sessionId: string, length = 8): string {
   return sessionId.length <= length ? sessionId : sessionId.slice(-length)
 }
+
+// CSS `truncate` only clips visually if an ancestor actually constrains
+// width — a single unbroken string (e.g. a raw JSON payload with no
+// whitespace to wrap on, like a full file's contents) can blow out a flex
+// row's layout before CSS ever gets a chance to clip it. Cap the string
+// itself so layout can't depend on that.
+export function truncateText(value: string, length = 200): string {
+  return value.length <= length ? value : `${value.slice(0, length)}…`
+}
