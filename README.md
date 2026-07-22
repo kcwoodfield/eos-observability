@@ -3,7 +3,7 @@
 Real-time event ingestion, session tracking, and dashboards for AI-assisted
 engineering work — across any CLI harness, unified into one live view.
 
-![EOS-Observability dashboard](docs/images/dashboard.png)
+![EOS-Observability dashboard](docs/images/dashboard.gif)
 
 <figure>
   <img src="docs/images/hitl-inbox.png" alt="EOS-Observability HITL inbox and Working Stage panel">
