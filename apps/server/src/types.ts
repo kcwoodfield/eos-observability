@@ -124,6 +124,10 @@ export interface NewHitlRequest {
   session_id: string;
   question: string;
   ticket_id?: string;
+  // When set, an approved request here is what satisfies the "gate needs a
+  // human confirmation before it can be marked passed" assertion enforced
+  // on POST /events/stage-transition (see db.ts's hasApprovedGateConfirmation).
+  gate?: QualityGate;
 }
 
 export interface HitlRequest extends NewHitlRequest {

@@ -2,51 +2,75 @@ import { useEffect } from 'react'
 import { SERVER_URL } from '@/lib/config'
 
 // Drives the REAL server (not a client-side mock) through one fake ticket's
-// full lifecycle, compressed into a 10s loop, so ?demo=true produces a
+// full lifecycle, compressed into a repeating loop, so ?demo=true produces a
 // short, repeatable clip to record — reuses the exact same ingest → tickets
 // projection → WS broadcast pipeline a real adapter would, just compressed
 // in time and looped.
+//
+// "The gated loop": every quality gate — not just Approval — now requires an
+// approved HITL confirmation before it can be marked passed (enforced
+// server-side, see index.ts's assertion on POST /events/stage-transition).
+// So each gated stage here runs pending -> HITL request -> auto-approve ->
+// pass, mirroring what a real role would have to do.
 const TICKET_ID = 'DEMO-007'
 const APPLICATION = 'Demo App'
 const EPIC = 'EPIC-Live-Demo'
 const REPOSITORY = 'demo-app'
 const PROJECT_MEMORY_PATH = 'applications/demo-app'
-const LOOP_DURATION_MS = 10_000
-const HITL_RESOLVE_DELAY_MS = 1000
+const LOOP_DURATION_MS = 9_000
+const GATE_CONFIRM_DELAY_MS = 400
 
-// Session IDs read as session-id-<ticket> (plus a per-role suffix, since a
-// single ticket still involves several distinct role sessions).
+// Session IDs read as session-id-<ticket>-<role> — one per role per ticket,
+// not one per gate. A gate suffix was tried and reverted: it made a role's
+// one continuous run look like several concurrent "sessions" (one per gate
+// it happened to touch), which is exactly the ambiguity a session ID is
+// supposed to resolve. The gate itself already lives on the event's
+// lifecycle.gate field — no need to fragment session identity to carry it.
 const SESSION_PREFIX = `session-id-${TICKET_ID.toLowerCase()}`
 
-interface DemoStage {
+function sessionFor(roleSlug: string): string {
+  return `${SESSION_PREFIX}-${roleSlug}`
+}
+
+interface StageAction {
   t: number
+  // 'pass' actions depend on their preceding 'confirm' having actually
+  // resolved (a real ~400ms round trip) — the catch-up scheduler below
+  // needs to know this so it doesn't collapse that gap to 40ms.
+  kind: 'normal' | 'confirm' | 'pass'
+  run: () => void
+}
+
+interface StageDef {
   sourceApp: string
-  sessionId: string
+  roleSlug: string
   stage: string
   role: string
   gate?: string
-  gateResult?: 'pass' | 'fail' | 'pending'
 }
 
-const STAGES: DemoStage[] = [
-  { t: 200, sourceApp: 'Engineering Lead', sessionId: `${SESSION_PREFIX}-eng-lead`, stage: 'resolve_application', role: 'Engineering Lead' },
-  { t: 700, sourceApp: 'Engineering Lead', sessionId: `${SESSION_PREFIX}-eng-lead`, stage: 'understand', role: 'Engineering Lead', gate: 'understanding', gateResult: 'pass' },
-  { t: 1400, sourceApp: 'Research', sessionId: `${SESSION_PREFIX}-research`, stage: 'research', role: 'Research' },
-  { t: 2100, sourceApp: 'Architecture', sessionId: `${SESSION_PREFIX}-arch`, stage: 'architecture_review', role: 'Architecture', gate: 'architecture', gateResult: 'pass' },
-  { t: 2800, sourceApp: 'Engineering Lead', sessionId: `${SESSION_PREFIX}-eng-lead`, stage: 'plan', role: 'Engineering Lead' },
-  { t: 3400, sourceApp: 'Engineering Lead', sessionId: `${SESSION_PREFIX}-eng-lead`, stage: 'approval', role: 'Engineering Lead', gate: 'approval', gateResult: 'pending' },
-  { t: 4700, sourceApp: 'Engineering Lead', sessionId: `${SESSION_PREFIX}-eng-lead`, stage: 'approval', role: 'Engineering Lead', gate: 'approval', gateResult: 'pass' },
-  { t: 5300, sourceApp: 'Implementation', sessionId: `${SESSION_PREFIX}-impl`, stage: 'implement', role: 'Implementation' },
-  { t: 6000, sourceApp: 'Review', sessionId: `${SESSION_PREFIX}-review`, stage: 'review', role: 'Review', gate: 'review', gateResult: 'pass' },
-  { t: 6700, sourceApp: 'Testing', sessionId: `${SESSION_PREFIX}-test`, stage: 'testing', role: 'Testing', gate: 'testing', gateResult: 'pass' },
-  { t: 7400, sourceApp: 'Knowledge Steward', sessionId: `${SESSION_PREFIX}-ks`, stage: 'knowledge_preservation', role: 'Knowledge Steward', gate: 'knowledge_preservation', gateResult: 'pass' },
-  { t: 8100, sourceApp: 'Engineering Lead', sessionId: `${SESSION_PREFIX}-eng-lead`, stage: 'deliver', role: 'Engineering Lead' },
+const LIFECYCLE: StageDef[] = [
+  { sourceApp: 'Engineering Lead', roleSlug: 'eng-lead', stage: 'resolve_application', role: 'Engineering Lead' },
+  { sourceApp: 'Engineering Lead', roleSlug: 'eng-lead', stage: 'understand', role: 'Engineering Lead', gate: 'understanding' },
+  { sourceApp: 'Research', roleSlug: 'research', stage: 'research', role: 'Research' },
+  { sourceApp: 'Architecture', roleSlug: 'arch', stage: 'architecture_review', role: 'Architecture', gate: 'architecture' },
+  { sourceApp: 'Engineering Lead', roleSlug: 'eng-lead', stage: 'plan', role: 'Engineering Lead' },
+  { sourceApp: 'Engineering Lead', roleSlug: 'eng-lead', stage: 'approval', role: 'Engineering Lead', gate: 'approval' },
+  { sourceApp: 'Implementation', roleSlug: 'impl', stage: 'implement', role: 'Implementation' },
+  { sourceApp: 'Review', roleSlug: 'review', stage: 'review', role: 'Review', gate: 'review' },
+  { sourceApp: 'Testing', roleSlug: 'test', stage: 'testing', role: 'Testing', gate: 'testing' },
+  { sourceApp: 'Knowledge Steward', roleSlug: 'ks', stage: 'knowledge_preservation', role: 'Knowledge Steward', gate: 'knowledge_preservation' },
+  { sourceApp: 'Engineering Lead', roleSlug: 'eng-lead', stage: 'deliver', role: 'Engineering Lead' },
 ]
 
-function postStage(step: DemoStage) {
+function postStageTransition(
+  def: StageDef,
+  sessionId: string,
+  gateResult?: 'pass' | 'fail' | 'pending'
+) {
   const lifecycle: Record<string, unknown> = {
-    stage: step.stage,
-    role: step.role,
+    stage: def.stage,
+    role: def.role,
     resolution_packet: {
       application: APPLICATION,
       epic: EPIC,
@@ -56,16 +80,16 @@ function postStage(step: DemoStage) {
       project_memory_path: PROJECT_MEMORY_PATH,
     },
   }
-  if (step.gate) lifecycle.gate = step.gate
-  if (step.gateResult) lifecycle.gate_result = step.gateResult
+  if (def.gate) lifecycle.gate = def.gate
+  if (gateResult) lifecycle.gate_result = gateResult
 
   fetch(`${SERVER_URL}/events/stage-transition`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       harness: 'claude-code',
-      source_app: step.sourceApp,
-      session_id: step.sessionId,
+      source_app: def.sourceApp,
+      session_id: sessionId,
       event_type: 'stage_transition',
       payload: {},
       lifecycle,
@@ -73,17 +97,18 @@ function postStage(step: DemoStage) {
   }).catch((err) => console.error('demo: failed to send stage transition', err))
 }
 
-async function runHitlCycle() {
+async function requestAndApproveGate(def: StageDef, sessionId: string) {
   try {
     const res = await fetch(`${SERVER_URL}/hitl`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         harness: 'claude-code',
-        source_app: 'Engineering Lead',
-        session_id: `${SESSION_PREFIX}-eng-lead`,
-        question: `${TICKET_ID}: approve merging the demo changes?`,
+        source_app: def.sourceApp,
+        session_id: sessionId,
+        question: `${TICKET_ID}: confirm the ${def.gate} gate?`,
         ticket_id: TICKET_ID,
+        gate: def.gate,
       }),
     })
     const created = await res.json()
@@ -93,13 +118,51 @@ async function runHitlCycle() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'approved' }),
       }).catch(() => {})
-    }, HITL_RESOLVE_DELAY_MS)
+    }, GATE_CONFIRM_DELAY_MS)
   } catch (err) {
-    console.error('demo: failed HITL cycle', err)
+    console.error('demo: failed gate confirmation cycle', err)
   }
 }
 
-const HITL_TRIGGER_T = 3450 // lines up with the pending "approval" transition above
+// Lays each stage out along the loop's timeline. Gated stages take three
+// beats (pending -> confirm -> pass); ungated stages take one.
+function buildActions(): StageAction[] {
+  const actions: StageAction[] = []
+  let t = 200
+
+  for (const def of LIFECYCLE) {
+    const sessionId = sessionFor(def.roleSlug)
+
+    if (!def.gate) {
+      const at = t
+      actions.push({ t: at, kind: 'normal', run: () => postStageTransition(def, sessionId) })
+      t += 500
+      continue
+    }
+
+    const pendingAt = t
+    const confirmAt = t + 50
+    const passAt = t + 50 + GATE_CONFIRM_DELAY_MS + 100
+
+    actions.push({
+      t: pendingAt,
+      kind: 'normal',
+      run: () => postStageTransition(def, sessionId, 'pending'),
+    })
+    actions.push({
+      t: confirmAt,
+      kind: 'confirm',
+      run: () => requestAndApproveGate(def, sessionId),
+    })
+    actions.push({ t: passAt, kind: 'pass', run: () => postStageTransition(def, sessionId, 'pass') })
+
+    t = passAt + 400
+  }
+
+  return actions
+}
+
+const ACTIONS = buildActions()
 
 export function useDemoSimulator(enabled: boolean) {
   useEffect(() => {
@@ -111,25 +174,30 @@ export function useDemoSimulator(enabled: boolean) {
     // On first load, jump into the loop at a random phase instead of always
     // starting from an empty board at t=0 — makes it look like the loop was
     // already running rather than obviously restarting on every page load.
-    // Steps earlier than the phase fire back-to-back in a quick catch-up
+    // Actions earlier than the phase fire back-to-back in a quick catch-up
     // burst (40ms apart, preserving order) instead of waiting for their
-    // normal absolute time.
+    // normal absolute time — except a 'pass' action, which must wait for
+    // its own 'confirm' to have actually completed (a real async round
+    // trip): collapsing that gap to 40ms sent the pass before the server
+    // had an approved confirmation on record, so it got silently rejected.
     function scheduleLoop(phaseOffset: number) {
       if (cancelled) return
       let catchUpDelay = 0
+      let lastConfirmDelay = -Infinity
 
-      for (const step of STAGES) {
-        if (step.t < phaseOffset) {
-          timeouts.push(window.setTimeout(() => postStage(step), catchUpDelay))
-          catchUpDelay += 40
+      for (const action of ACTIONS) {
+        if (action.t < phaseOffset) {
+          let delay = catchUpDelay
+          if (action.kind === 'pass') {
+            delay = Math.max(delay, lastConfirmDelay + GATE_CONFIRM_DELAY_MS + 200)
+          }
+          timeouts.push(window.setTimeout(action.run, delay))
+          if (action.kind === 'confirm') lastConfirmDelay = delay
+          catchUpDelay = delay + 40
         } else {
-          timeouts.push(window.setTimeout(() => postStage(step), step.t - phaseOffset))
+          timeouts.push(window.setTimeout(action.run, action.t - phaseOffset))
         }
       }
-
-      const hitlDelay =
-        HITL_TRIGGER_T < phaseOffset ? catchUpDelay : HITL_TRIGGER_T - phaseOffset
-      timeouts.push(window.setTimeout(() => runHitlCycle(), hitlDelay))
 
       timeouts.push(window.setTimeout(() => scheduleLoop(0), LOOP_DURATION_MS - phaseOffset))
     }

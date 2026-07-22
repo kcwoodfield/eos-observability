@@ -82,6 +82,7 @@ export interface HitlRequest {
   session_id: string
   question: string
   ticket_id?: string
+  gate?: QualityGate
   status: HitlStatus
   response?: string
   timestamp: number

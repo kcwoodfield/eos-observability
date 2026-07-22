@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { formatSnakeLabel } from '@/lib/format'
 import { identityColorVar } from '@/lib/identityColor'
 import { respondToHitlRequest } from '@/lib/hitl'
 import type { HitlRequest } from '@/lib/types'
@@ -55,6 +56,11 @@ export function HitlInbox({ requests }: { requests: HitlRequest[] }) {
                     <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                       {request.ticket_id}
                     </span>
+                  )}
+                  {request.gate && (
+                    <Badge variant="outline" className="shrink-0 text-[9px]">
+                      {formatSnakeLabel(request.gate)} gate
+                    </Badge>
                   )}
                 </div>
                 <p className="truncate text-xs text-muted-foreground">{request.question}</p>

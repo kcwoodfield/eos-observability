@@ -7,6 +7,7 @@ import type {
   NewHitlRequest,
   NewObservabilityEvent,
   ObservabilityEvent,
+  QualityGate,
   Ticket,
 } from './types';
 
@@ -24,6 +25,11 @@ export interface HitlRepository {
   respond(id: number, status: 'approved' | 'denied', response?: string): HitlRequest | null;
   get(id: number): HitlRequest | null;
   listPending(): HitlRequest[];
+  // The assertion behind "every quality gate needs a human confirmation
+  // before it can be marked passed" (POST /events/stage-transition enforces
+  // this): true only if some HITL request for this exact ticket+gate has
+  // been approved at least once.
+  hasApprovedGateConfirmation(ticketId: string, gate: QualityGate): boolean;
 }
 
 export interface TicketRepository {
@@ -59,6 +65,7 @@ function rowToHitlRequest(row: any): HitlRequest {
     session_id: row.session_id,
     question: row.question,
     ticket_id: row.ticket_id || undefined,
+    gate: row.gate || undefined,
     status: row.status,
     response: row.response || undefined,
     timestamp: row.timestamp,
@@ -137,7 +144,17 @@ export class SqliteEventRepository implements EventRepository, HitlRepository, T
         responded_at INTEGER
       )
     `);
+    const hitlColumns = this.db.prepare('PRAGMA table_info(hitl_requests)').all() as {
+      name: string;
+    }[];
+    if (!hitlColumns.some((c) => c.name === 'gate')) {
+      this.db.exec('ALTER TABLE hitl_requests ADD COLUMN gate TEXT');
+    }
+
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_hitl_status ON hitl_requests(status)');
+    this.db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_hitl_ticket_gate ON hitl_requests(ticket_id, gate)'
+    );
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS tickets (
@@ -163,8 +180,8 @@ export class SqliteEventRepository implements EventRepository, HitlRepository, T
   create(req: NewHitlRequest): HitlRequest {
     const timestamp = Date.now();
     const stmt = this.db.prepare(`
-      INSERT INTO hitl_requests (harness, source_app, session_id, question, ticket_id, status, timestamp)
-      VALUES (?, ?, ?, ?, ?, 'pending', ?)
+      INSERT INTO hitl_requests (harness, source_app, session_id, question, ticket_id, gate, status, timestamp)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
     `);
     const result = stmt.run(
       req.harness,
@@ -172,6 +189,7 @@ export class SqliteEventRepository implements EventRepository, HitlRepository, T
       req.session_id,
       req.question,
       req.ticket_id ?? null,
+      req.gate ?? null,
       timestamp
     );
 
@@ -181,6 +199,15 @@ export class SqliteEventRepository implements EventRepository, HitlRepository, T
       status: 'pending',
       timestamp,
     };
+  }
+
+  hasApprovedGateConfirmation(ticketId: string, gate: QualityGate): boolean {
+    const row = this.db
+      .prepare(
+        `SELECT 1 FROM hitl_requests WHERE ticket_id = ? AND gate = ? AND status = 'approved' LIMIT 1`
+      )
+      .get(ticketId, gate);
+    return row != null;
   }
 
   respond(id: number, status: 'approved' | 'denied', response?: string): HitlRequest | null {

@@ -135,6 +135,23 @@ const server = Bun.serve({
           );
         }
 
+        // Assertion: a gate can only be marked passed once a human has
+        // actually confirmed it via HITL — self-reporting "pass" isn't
+        // sufficient. Fail/pending need no confirmation; only an assertion
+        // of success does.
+        const { gate, gate_result, resolution_packet } = body.lifecycle;
+        if (gate && gate_result === 'pass') {
+          const ticketId = resolution_packet?.ticket_id;
+          if (!ticketId || !repo.hasApprovedGateConfirmation(ticketId, gate)) {
+            return json(
+              {
+                error: `Gate "${gate}" cannot be marked passed without an approved HITL confirmation for this ticket. Request one via POST /hitl (or request_approval.py --gate ${gate}) first.`,
+              },
+              { status: 400 }
+            );
+          }
+        }
+
         const saved = repo.insert({ ...body, event_type: body.event_type || 'stage_transition' });
         broadcast({ type: 'event', data: saved });
 
@@ -186,6 +203,7 @@ const server = Bun.serve({
           session_id: body.session_id,
           question: body.question,
           ticket_id: body.ticket_id,
+          gate: body.gate,
         });
         broadcast({ type: 'hitl_created', data: saved });
 
