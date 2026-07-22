@@ -19,6 +19,25 @@ function broadcast(message: object): void {
   }
 }
 
+// HITL long-poll: the requester (agent-side script) blocks on GET
+// /hitl/:id/wait instead of the server dialing back out to it (PRD §6's
+// fix for the reference app's fragile reverse connection). A pending
+// request's resolvers live here in memory only — fine for a single-process
+// server, and a restart just means any in-flight waiter times out and the
+// caller can re-poll.
+const hitlWaiters = new Map<number, Array<() => void>>();
+
+function notifyHitlWaiters(id: number): void {
+  const waiters = hitlWaiters.get(id);
+  if (!waiters) return;
+  hitlWaiters.delete(id);
+  for (const resolve of waiters) resolve();
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -42,6 +61,7 @@ function parseEventQuery(url: URL): EventQuery {
   if (params.has('event_type')) query.event_type = params.get('event_type')!;
   if (params.has('stage')) query.stage = params.get('stage') as EventQuery['stage'];
   if (params.has('role')) query.role = params.get('role')!;
+  if (params.has('ticket_id')) query.ticket_id = params.get('ticket_id')!;
   if (params.has('since')) query.since = Number(params.get('since'));
   if (params.has('until')) query.until = Number(params.get('until'));
   if (params.has('limit')) query.limit = Number(params.get('limit'));
@@ -64,6 +84,12 @@ function isValidNewEvent(body: any): body is NewObservabilityEvent {
 
 const server = Bun.serve({
   port: PORT,
+  // Bun's default per-connection idle timeout is 10s, which kills the HITL
+  // long-poll (GET /hitl/:id/wait) mid-request — found by actually running
+  // request_approval.py against the server, not by inspection. 255 is Bun's
+  // max (idleTimeout is a uint8 seconds field); the wait endpoint clamps its
+  // own timeout well under this.
+  idleTimeout: 255,
 
   async fetch(req) {
     const url = new URL(req.url);
@@ -85,6 +111,9 @@ const server = Bun.serve({
 
         const saved = repo.insert(body);
         broadcast({ type: 'event', data: saved });
+
+        const ticket = repo.upsertFromEvent(saved);
+        if (ticket) broadcast({ type: 'ticket', data: ticket });
 
         return json(saved);
       } catch (err) {
@@ -109,6 +138,9 @@ const server = Bun.serve({
         const saved = repo.insert({ ...body, event_type: body.event_type || 'stage_transition' });
         broadcast({ type: 'event', data: saved });
 
+        const ticket = repo.upsertFromEvent(saved);
+        if (ticket) broadcast({ type: 'ticket', data: ticket });
+
         return json(saved);
       } catch (err) {
         console.error('Error processing stage transition:', err);
@@ -122,9 +154,102 @@ const server = Bun.serve({
       return json(page);
     }
 
+    // GET /tickets — the tickets projection (Lifecycle Board / Working
+    // Stage panel), independent of the events page size/window.
+    if (url.pathname === '/tickets' && req.method === 'GET') {
+      return json({ tickets: repo.listTickets() });
+    }
+
     // GET /events/filter-options — distinct values for building filter UI.
     if (url.pathname === '/events/filter-options' && req.method === 'GET') {
       return json(repo.filterOptions());
+    }
+
+    // POST /hitl — agent-side script opens a request (e.g. at the EOS
+    // Approval gate) and then blocks on GET /hitl/:id/wait for the answer.
+    if (url.pathname === '/hitl' && req.method === 'POST') {
+      try {
+        const body: any = await req.json();
+        if (
+          !body ||
+          typeof body.harness !== 'string' ||
+          typeof body.source_app !== 'string' ||
+          typeof body.session_id !== 'string' ||
+          typeof body.question !== 'string'
+        ) {
+          return json({ error: 'Missing or invalid required fields' }, { status: 400 });
+        }
+
+        const saved = repo.create({
+          harness: body.harness,
+          source_app: body.source_app,
+          session_id: body.session_id,
+          question: body.question,
+          ticket_id: body.ticket_id,
+        });
+        broadcast({ type: 'hitl_created', data: saved });
+
+        return json(saved);
+      } catch (err) {
+        console.error('Error creating HITL request:', err);
+        return json({ error: 'Invalid request' }, { status: 400 });
+      }
+    }
+
+    // GET /hitl?status=pending — list requests, for the inbox UI.
+    if (url.pathname === '/hitl' && req.method === 'GET') {
+      return json({ requests: repo.listPending() });
+    }
+
+    // GET /hitl/:id/wait — long-poll. Blocks until a human responds or the
+    // timeout elapses, then returns the request's current state either way.
+    const waitMatch = url.pathname.match(/^\/hitl\/(\d+)\/wait$/);
+    if (waitMatch && req.method === 'GET') {
+      const id = Number(waitMatch[1]);
+      // Bun's per-connection idleTimeout (set below) caps how long any single
+      // request can stay open — clamp under that, with margin, rather than
+      // the timeout param's nominal max.
+      const timeoutMs = Math.min(Number(url.searchParams.get('timeout') ?? 60_000), 240_000);
+
+      let current = repo.get(id);
+      if (!current) return json({ error: 'Not found' }, { status: 404 });
+
+      if (current.status === 'pending') {
+        await Promise.race([
+          new Promise<void>((resolve) => {
+            const waiters = hitlWaiters.get(id) ?? [];
+            waiters.push(resolve);
+            hitlWaiters.set(id, waiters);
+          }),
+          sleep(timeoutMs),
+        ]);
+        current = repo.get(id) ?? current;
+      }
+
+      return json(current);
+    }
+
+    // POST /hitl/:id/respond — the human's answer, from the dashboard UI.
+    const respondMatch = url.pathname.match(/^\/hitl\/(\d+)\/respond$/);
+    if (respondMatch && req.method === 'POST') {
+      const id = Number(respondMatch[1]);
+      try {
+        const body: any = await req.json();
+        if (body?.status !== 'approved' && body?.status !== 'denied') {
+          return json({ error: 'status must be "approved" or "denied"' }, { status: 400 });
+        }
+
+        const updated = repo.respond(id, body.status, body.response);
+        if (!updated) return json({ error: 'Not found' }, { status: 404 });
+
+        notifyHitlWaiters(id);
+        broadcast({ type: 'hitl_responded', data: updated });
+
+        return json(updated);
+      } catch (err) {
+        console.error('Error responding to HITL request:', err);
+        return json({ error: 'Invalid request' }, { status: 400 });
+      }
     }
 
     // WS /stream — live broadcast of newly inserted events.
@@ -143,6 +268,8 @@ const server = Bun.serve({
       wsClients.add(ws);
       const { events } = repo.list({ limit: 50 });
       ws.send(JSON.stringify({ type: 'initial', data: events }));
+      ws.send(JSON.stringify({ type: 'hitl_initial', data: repo.listPending() }));
+      ws.send(JSON.stringify({ type: 'tickets_initial', data: repo.listTickets() }));
     },
     message() {
       // No client -> server messages expected yet.

@@ -37,9 +37,20 @@ export interface TokenUsage {
   cache_read_tokens: number;
 }
 
+// Matches eos/standards/Application Mapping Standard.md's "kind" — the
+// playbook governing the ticket, not a separate taxonomy.
+export type TicketKind =
+  | 'bug_fix'
+  | 'feature'
+  | 'migration'
+  | 'release'
+  | 'production_incident';
+
 export interface ResolutionPacket {
   application: string;
+  epic?: string;
   ticket_id: string;
+  ticket_kind?: TicketKind;
   repository: string;
   project_memory_path: string;
 }
@@ -83,6 +94,7 @@ export interface EventQuery {
   event_type?: string;
   stage?: LifecycleStage;
   role?: string;
+  ticket_id?: string;
   since?: number;
   until?: number;
   limit?: number;
@@ -99,4 +111,48 @@ export interface FilterOptions {
   source_apps: string[];
   session_ids: string[];
   event_types: string[];
+}
+
+// Human-in-the-loop: redesigned per PRD §6 so the *requester* (agent/harness)
+// holds the long-lived connection (a blocking long-poll) instead of the
+// server dialing back out to an ephemeral agent-hosted port.
+export type HitlStatus = 'pending' | 'approved' | 'denied';
+
+export interface NewHitlRequest {
+  harness: Harness;
+  source_app: string;
+  session_id: string;
+  question: string;
+  ticket_id?: string;
+}
+
+export interface HitlRequest extends NewHitlRequest {
+  id: number;
+  status: HitlStatus;
+  response?: string;
+  timestamp: number;
+  responded_at?: number;
+}
+
+// A materialized projection over stage-transition events, keyed by
+// ticket_id — not a second source of truth. `events` remains authoritative;
+// this table is rebuilt-on-write from it so the Lifecycle Board / Working
+// Stage panel can query current ticket state directly instead of folding
+// over whatever page of events the client happens to have loaded (which
+// silently drops tickets once event volume exceeds one page).
+export interface Ticket {
+  ticket_id: string;
+  application: string;
+  epic?: string;
+  ticket_kind?: TicketKind;
+  repository: string;
+  project_memory_path: string;
+  stage: LifecycleStage;
+  role?: string;
+  gate?: QualityGate;
+  gate_result?: 'pass' | 'fail' | 'pending';
+  gate_results: Partial<Record<QualityGate, 'pass' | 'fail' | 'pending'>>;
+  session_id: string;
+  harness: Harness;
+  last_ts: number;
 }

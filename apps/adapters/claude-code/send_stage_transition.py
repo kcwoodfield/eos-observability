@@ -44,7 +44,13 @@ def main():
     parser.add_argument('--gate', choices=GATES)
     parser.add_argument('--gate-result', choices=['pass', 'fail', 'pending'])
     parser.add_argument('--application', required=True)
+    parser.add_argument('--epic', help='Optional epic grouping (eos/ Application Mapping Standard)')
     parser.add_argument('--ticket-id', required=True)
+    parser.add_argument(
+        '--ticket-kind',
+        choices=['bug_fix', 'feature', 'migration', 'release', 'production_incident'],
+        help='Which playbook governs this ticket',
+    )
     parser.add_argument('--repository', required=True)
     parser.add_argument('--project-memory-path', required=True)
     parser.add_argument('--server-url', default='http://localhost:4100/events/stage-transition')
@@ -60,6 +66,10 @@ def main():
             'project_memory_path': args.project_memory_path,
         },
     }
+    if args.epic:
+        lifecycle['resolution_packet']['epic'] = args.epic
+    if args.ticket_kind:
+        lifecycle['resolution_packet']['ticket_kind'] = args.ticket_kind
     if args.gate:
         lifecycle['gate'] = args.gate
     if args.gate_result:

@@ -18,7 +18,7 @@ function matchesFilters(event: ObservabilityEvent, filters: EventQuery): boolean
 export function useObservabilityEvents(filters: EventQuery) {
   const [historyEvents, setHistoryEvents] = useState<ObservabilityEvent[]>([])
   const [loading, setLoading] = useState(false)
-  const { events: liveEvents, isConnected } = useEventStream()
+  const { events: liveEvents, hitlRequests, tickets, isConnected } = useEventStream()
 
   useEffect(() => {
     const params = new URLSearchParams()
@@ -42,5 +42,5 @@ export function useObservabilityEvents(filters: EventQuery) {
     (a, b) => a.timestamp - b.timestamp
   )
 
-  return { events: merged, isConnected, loading }
+  return { events: merged, hitlRequests, tickets, isConnected, loading }
 }

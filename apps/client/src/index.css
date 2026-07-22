@@ -97,6 +97,12 @@
     --status-warning: #fab219;
     --status-serious: #ec835a;
     --status-critical: #d03b3b;
+
+    /* Agent tree (Working Stage panel) — deliberately distinct from
+       --status-good: user asked for a specific terminal aesthetic (grey
+       lines, bright terminal-green when active), not the app's muted
+       status green. */
+    --agent-tree-active: #16a34a;
 }
 
 .dark {
@@ -146,6 +152,8 @@
     --status-warning: #fab219;
     --status-serious: #ec835a;
     --status-critical: #d03b3b;
+
+    --agent-tree-active: #39ff14;
 }
 
 @layer base {

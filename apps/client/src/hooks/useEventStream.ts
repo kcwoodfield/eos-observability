@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { MAX_EVENTS_TO_DISPLAY, WS_URL } from '@/lib/config'
-import type { ObservabilityEvent } from '@/lib/types'
+import type { HitlRequest, ObservabilityEvent, Ticket } from '@/lib/types'
 
 interface WebSocketMessage {
-  type: 'initial' | 'event'
-  data: ObservabilityEvent | ObservabilityEvent[]
+  type: 'initial' | 'event' | 'hitl_initial' | 'hitl_created' | 'hitl_responded' | 'tickets_initial' | 'ticket'
+  data: ObservabilityEvent | ObservabilityEvent[] | HitlRequest | HitlRequest[] | Ticket | Ticket[]
 }
 
+// One WS connection carries the event stream, HITL request notifications,
+// and the tickets projection — they share the same live-broadcast transport
+// rather than opening a separate socket per concern.
 export function useEventStream() {
   const [events, setEvents] = useState<ObservabilityEvent[]>([])
+  const [hitlRequests, setHitlRequests] = useState<HitlRequest[]>([])
+  const [tickets, setTickets] = useState<Ticket[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const reconnectTimeout = useRef<number | null>(null)
 
@@ -35,6 +40,27 @@ export function useEventStream() {
               return next.length > MAX_EVENTS_TO_DISPLAY
                 ? next.slice(next.length - MAX_EVENTS_TO_DISPLAY)
                 : next
+            })
+          } else if (message.type === 'hitl_initial') {
+            const initial = Array.isArray(message.data) ? (message.data as HitlRequest[]) : []
+            setHitlRequests(initial)
+          } else if (message.type === 'hitl_created') {
+            const incoming = message.data as HitlRequest
+            setHitlRequests((prev) => [...prev, incoming])
+          } else if (message.type === 'hitl_responded') {
+            const updated = message.data as HitlRequest
+            setHitlRequests((prev) => prev.filter((r) => r.id !== updated.id))
+          } else if (message.type === 'tickets_initial') {
+            const initial = Array.isArray(message.data) ? (message.data as Ticket[]) : []
+            setTickets(initial)
+          } else if (message.type === 'ticket') {
+            const incoming = message.data as Ticket
+            setTickets((prev) => {
+              const idx = prev.findIndex((t) => t.ticket_id === incoming.ticket_id)
+              if (idx === -1) return [incoming, ...prev]
+              const next = [...prev]
+              next[idx] = incoming
+              return next
             })
           }
         } catch (err) {
@@ -63,5 +89,5 @@ export function useEventStream() {
     }
   }, [])
 
-  return { events, isConnected }
+  return { events, hitlRequests, tickets, isConnected }
 }
