@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { getEventTypeIcon, isSuccessEvent } from '@/lib/eventTypeMeta'
+import { shortSessionId } from '@/lib/format'
 import { identityColorVar } from '@/lib/identityColor'
 import { deriveSessionSummaries } from '@/lib/sessionSummary'
 import { useNow } from '@/hooks/useNow'
@@ -133,7 +134,7 @@ export function ActivityTimeline({ events }: { events: ObservabilityEvent[] }) {
                     />
                     <span className="truncate text-xs font-medium">{session.source_app}</span>
                     <span className="shrink-0 truncate font-mono text-[10px] text-muted-foreground">
-                      {session.session_id.slice(0, 6)}
+                      {shortSessionId(session.session_id, 6)}
                     </span>
 
                     {session.tokenUsage && (

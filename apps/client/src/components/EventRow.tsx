@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { getEventTypeIcon, isSuccessEvent } from '@/lib/eventTypeMeta'
+import { formatSnakeLabel, shortSessionId } from '@/lib/format'
 import { identityColorVar } from '@/lib/identityColor'
 import type { ObservabilityEvent } from '@/lib/types'
 
@@ -50,7 +51,7 @@ export function EventRow({ event }: { event: ObservabilityEvent }) {
       </Badge>
 
       <IdentityPill label={event.source_app} colorVar={sourceColor} />
-      <IdentityPill label={event.session_id.slice(0, 8)} colorVar={sessionColor} monospace />
+      <IdentityPill label={shortSessionId(event.session_id)} colorVar={sessionColor} monospace />
 
       <Badge
         className="shrink-0 gap-1"
@@ -62,12 +63,12 @@ export function EventRow({ event }: { event: ObservabilityEvent }) {
         variant={success ? 'default' : 'secondary'}
       >
         <Icon className="size-3" />
-        {event.event_type}
+        {formatSnakeLabel(event.event_type)}
       </Badge>
 
       {event.lifecycle?.stage && (
         <Badge variant="outline" className="shrink-0 border-dashed">
-          {event.lifecycle.stage}
+          {formatSnakeLabel(event.lifecycle.stage)}
         </Badge>
       )}
 

@@ -14,6 +14,10 @@ const PROJECT_MEMORY_PATH = 'applications/demo-app'
 const LOOP_DURATION_MS = 10_000
 const HITL_RESOLVE_DELAY_MS = 1000
 
+// Session IDs read as session-id-<ticket> (plus a per-role suffix, since a
+// single ticket still involves several distinct role sessions).
+const SESSION_PREFIX = `session-id-${TICKET_ID.toLowerCase()}`
+
 interface DemoStage {
   t: number
   sourceApp: string
@@ -25,18 +29,18 @@ interface DemoStage {
 }
 
 const STAGES: DemoStage[] = [
-  { t: 200, sourceApp: 'Engineering Lead', sessionId: 'demo-eng-lead', stage: 'resolve_application', role: 'Engineering Lead' },
-  { t: 700, sourceApp: 'Engineering Lead', sessionId: 'demo-eng-lead', stage: 'understand', role: 'Engineering Lead', gate: 'understanding', gateResult: 'pass' },
-  { t: 1400, sourceApp: 'Research', sessionId: 'demo-research', stage: 'research', role: 'Research' },
-  { t: 2100, sourceApp: 'Architecture', sessionId: 'demo-arch', stage: 'architecture_review', role: 'Architecture', gate: 'architecture', gateResult: 'pass' },
-  { t: 2800, sourceApp: 'Engineering Lead', sessionId: 'demo-eng-lead', stage: 'plan', role: 'Engineering Lead' },
-  { t: 3400, sourceApp: 'Engineering Lead', sessionId: 'demo-eng-lead', stage: 'approval', role: 'Engineering Lead', gate: 'approval', gateResult: 'pending' },
-  { t: 4700, sourceApp: 'Engineering Lead', sessionId: 'demo-eng-lead', stage: 'approval', role: 'Engineering Lead', gate: 'approval', gateResult: 'pass' },
-  { t: 5300, sourceApp: 'Implementation', sessionId: 'demo-impl', stage: 'implement', role: 'Implementation' },
-  { t: 6000, sourceApp: 'Review', sessionId: 'demo-review', stage: 'review', role: 'Review', gate: 'review', gateResult: 'pass' },
-  { t: 6700, sourceApp: 'Testing', sessionId: 'demo-test', stage: 'testing', role: 'Testing', gate: 'testing', gateResult: 'pass' },
-  { t: 7400, sourceApp: 'Knowledge Steward', sessionId: 'demo-ks', stage: 'knowledge_preservation', role: 'Knowledge Steward', gate: 'knowledge_preservation', gateResult: 'pass' },
-  { t: 8100, sourceApp: 'Engineering Lead', sessionId: 'demo-eng-lead', stage: 'deliver', role: 'Engineering Lead' },
+  { t: 200, sourceApp: 'Engineering Lead', sessionId: `${SESSION_PREFIX}-eng-lead`, stage: 'resolve_application', role: 'Engineering Lead' },
+  { t: 700, sourceApp: 'Engineering Lead', sessionId: `${SESSION_PREFIX}-eng-lead`, stage: 'understand', role: 'Engineering Lead', gate: 'understanding', gateResult: 'pass' },
+  { t: 1400, sourceApp: 'Research', sessionId: `${SESSION_PREFIX}-research`, stage: 'research', role: 'Research' },
+  { t: 2100, sourceApp: 'Architecture', sessionId: `${SESSION_PREFIX}-arch`, stage: 'architecture_review', role: 'Architecture', gate: 'architecture', gateResult: 'pass' },
+  { t: 2800, sourceApp: 'Engineering Lead', sessionId: `${SESSION_PREFIX}-eng-lead`, stage: 'plan', role: 'Engineering Lead' },
+  { t: 3400, sourceApp: 'Engineering Lead', sessionId: `${SESSION_PREFIX}-eng-lead`, stage: 'approval', role: 'Engineering Lead', gate: 'approval', gateResult: 'pending' },
+  { t: 4700, sourceApp: 'Engineering Lead', sessionId: `${SESSION_PREFIX}-eng-lead`, stage: 'approval', role: 'Engineering Lead', gate: 'approval', gateResult: 'pass' },
+  { t: 5300, sourceApp: 'Implementation', sessionId: `${SESSION_PREFIX}-impl`, stage: 'implement', role: 'Implementation' },
+  { t: 6000, sourceApp: 'Review', sessionId: `${SESSION_PREFIX}-review`, stage: 'review', role: 'Review', gate: 'review', gateResult: 'pass' },
+  { t: 6700, sourceApp: 'Testing', sessionId: `${SESSION_PREFIX}-test`, stage: 'testing', role: 'Testing', gate: 'testing', gateResult: 'pass' },
+  { t: 7400, sourceApp: 'Knowledge Steward', sessionId: `${SESSION_PREFIX}-ks`, stage: 'knowledge_preservation', role: 'Knowledge Steward', gate: 'knowledge_preservation', gateResult: 'pass' },
+  { t: 8100, sourceApp: 'Engineering Lead', sessionId: `${SESSION_PREFIX}-eng-lead`, stage: 'deliver', role: 'Engineering Lead' },
 ]
 
 function postStage(step: DemoStage) {
@@ -77,7 +81,7 @@ async function runHitlCycle() {
       body: JSON.stringify({
         harness: 'claude-code',
         source_app: 'Engineering Lead',
-        session_id: 'demo-eng-lead',
+        session_id: `${SESSION_PREFIX}-eng-lead`,
         question: `${TICKET_ID}: approve merging the demo changes?`,
         ticket_id: TICKET_ID,
       }),
